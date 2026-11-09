@@ -6,43 +6,113 @@
 <title>VOTACION TOKEN RICARDO</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-body{margin:0;background:#000;color:#fff;font-family:monospace;display:grid;place-items:center;height:100vh;overflow:hidden}
-#bg{position:fixed;inset:0;z-index:-1}
-.card{width:460px;max-width:90vw;background:rgba(20,20,20,.9);border:3px solid #fff;border-radius:20px;padding:24px;box-shadow:0 0 30px #0ff,0 0 60px #f0f}
-h1{margin:0 0 10px 0;text-align:center;font-size:24px}
-.bar{height:14px;background:#222;border-radius:10px;overflow:hidden;margin:12px 0}
-#fill{height:100%;width:0%;background:linear-gradient(90deg,#00ffff,#ff00ff,#ffff00)}
-button{width:100%;padding:14px;margin-top:10px;border:0;border-radius:12px;font-weight:900;font-size:16px;cursor:pointer}
-#btnSi{background:#00ff88} #btnNo{background:#ff0055;color:#fff} #btnExport{background:#fff}
-.count{display:flex;justify-content:space-between;font-size:18px;margin:10px 0}
+  body {
+    margin: 0;
+    color: #fff;
+    font-family: monospace;
+    display: grid;
+    place-items: center;
+    height: 100vh;
+    overflow: hidden;
+    background: #000;
+  }
+  #bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
+  .card {
+    position: relative;
+    z-index: 1;
+    width: 460px;
+    max-width: 90vw;
+    background: rgba(20, 20, 20, 0.9);
+    border: 3px solid #fff;
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 0 30px #0ff, 0 0 60px #f0f;
+  }
+  h1 { margin: 0 0 10px 0; text-align: center; font-size: 24px; }
+  .bar { height: 14px; background: #222; border-radius: 10px; overflow: hidden; margin: 12px 0; }
+  #fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00); transition: width 0.2s; }
+  button { width: 100%; padding: 14px; margin-top: 10px; border: 0; border-radius: 12px; font-weight: 900; font-size: 16px; cursor: pointer; }
+  #btnSi { background: #00ff88; }
+  #btnNo { background: #ff0055; color: #fff; }
+  #btnExport { background: #fff; }
+  .count { display: flex; justify-content: space-between; font-size: 18px; margin: 10px 0; }
 </style>
 </head>
 <body>
 <canvas id="bg"></canvas>
 <div class="card">
-<h1>¿RICARDO DEJA SACAR EL TOKEN?</h1>
-<div class="count"><span id="txtSi">SI: 0</span><span id="txtNo">NO: 0</span></div>
-<div class="bar"><div id="fill"></div></div>
-<button id="btnSi">VOTAR SI</button>
-<button id="btnNo">VOTAR NO</button>
-<button id="btnExport">EXPORTAR EXCEL</button>
+  <h1>¿RICARDO DEJA SACAR EL TOKEN?</h1>
+  <div class="count"><span id="txtSi">SI: 0</span><span id="txtNo">NO: 0</span></div>
+  <div class="bar"><div id="fill"></div></div>
+  <button id="btnSi">VOTAR SI</button>
+  <button id="btnNo">VOTAR NO</button>
+  <button id="btnExport">EXPORTAR EXCEL</button>
 </div>
-<script>
-// fondo RGB 144fps
-const c=document.getElementById('bg'), g=c.getContext('2d');
-function rs(){c.width=innerWidth;c.height=innerHeight} rs(); addEventListener('resize',rs);
-let t=0; (function loop(){t+=0.02; g.fillStyle=`hsl(${t*30%360},100%,5%)`; g.fillRect(0,0,c.width,c.height);
-for(let i=0;i<60;i++){g.fillStyle=`hsl(${(t*50+i*9)%360},100%,60%)`; g.fillRect(Math.sin(t+i)*c.width/2+c.width/2, (i/60*c.height+t*120)%c.height,6,6)} requestAnimationFrame(loop)})();
 
-// votos
-let data=JSON.parse(localStorage.getItem('v_token')||'{"si":0,"no":0}');
-const txtSi=document.getElementById('txtSi'), txtNo=document.getElementById('txtNo'), fill=document.getElementById('fill');
-function draw(){txtSi.textContent=`SI: ${data.si}`; txtNo.textContent=`NO: ${data.no}`; let tot=data.si+data.no||1; fill.style.width=(data.si/tot*100)+'%'; localStorage.setItem('v_token',JSON.stringify(data))} draw();
-document.getElementById('btnSi').addEventListener('click',()=>{data.si++; draw()});
-document.getElementById('btnNo').addEventListener('click',()=>{data.no++; draw()});
-document.getElementById('btnExport').addEventListener('click',()=>{
-const row=[{Fecha:new Date().toLocaleString(), SI:data.si, NO:data.no, TOTAL:data.si+data.no, '%SI':((data.si/(data.si+data.no||1))*100).toFixed(1)+'%'}];
-const ws=XLSX.utils.json_to_sheet(row); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Votacion'); XLSX.writeFile(wb,'votacion_ricardo_token.xlsx');
+<script>
+// Fondo RGB
+const c = document.getElementById('bg'), g = c.getContext('2d');
+function rs() { c.width = innerWidth; c.height = innerHeight; }
+rs();
+addEventListener('resize', rs);
+
+let t = 0;
+(function loop() {
+  t += 0.02;
+  g.fillStyle = `hsl(${t * 30 % 360}, 100%, 5%)`;
+  g.fillRect(0, 0, c.width, c.height);
+  for (let i = 0; i < 60; i++) {
+    g.fillStyle = `hsl(${(t * 50 + i * 9) % 360}, 100%, 60%)`;
+    g.fillRect(
+      Math.sin(t + i) * c.width / 2 + c.width / 2,
+      (i / 60 * c.height + t * 120) % c.height,
+      6, 6
+    );
+  }
+  requestAnimationFrame(loop);
+})();
+
+// Votos con guardado local seguro
+let data = { si: 0, no: 0 };
+try {
+  const saved = localStorage.getItem('v_token');
+  if (saved) data = JSON.parse(saved);
+} catch (e) {}
+
+const txtSi = document.getElementById('txtSi');
+const txtNo = document.getElementById('txtNo');
+const fill = document.getElementById('fill');
+
+function draw() {
+  txtSi.textContent = `SI: ${data.si}`;
+  txtNo.textContent = `NO: ${data.no}`;
+  const tot = data.si + data.no || 1;
+  fill.style.width = (data.si / tot * 100) + '%';
+  try {
+    localStorage.setItem('v_token', JSON.stringify(data));
+  } catch (e) {}
+}
+draw();
+
+document.getElementById('btnSi').addEventListener('click', () => { data.si++; draw(); });
+document.getElementById('btnNo').addEventListener('click', () => { data.no++; draw(); });
+document.getElementById('btnExport').addEventListener('click', () => {
+  if (typeof XLSX === 'undefined') return alert('No se pudo cargar la librería de Excel.');
+  const row = [{
+    Fecha: new Date().toLocaleString(),
+    SI: data.si,
+    NO: data.no,
+    TOTAL: data.si + data.no,
+    '%SI': ((data.si / (data.si + data.no || 1)) * 100).toFixed(1) + '%'
+  }];
+  const ws = XLSX.utils.json_to_sheet(row);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Votacion');
+  XLSX.writeFile(wb, 'votacion_ricardo_token.xlsx');
 });
 </script>
 </body>
