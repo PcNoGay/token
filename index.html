@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VOTACION TOKEN RICARDO</title>
+<title>VOTACIÓN TOKEN RICARDO</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   body {
@@ -12,18 +12,17 @@
     font-family: monospace;
     display: grid;
     place-items: center;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    box-sizing: border-box;
+    padding: 18px 0;
+    overflow-x: hidden;
     background: #000;
   }
-  #bg {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-  }
+  #bg { position: fixed; inset: 0; z-index: 0; }
   .card {
     position: relative;
     z-index: 1;
+    box-sizing: border-box;
     width: 460px;
     max-width: 90vw;
     background: rgba(20, 20, 20, 0.9);
@@ -31,27 +30,33 @@
     border-radius: 20px;
     padding: 24px;
     box-shadow: 0 0 30px #0ff, 0 0 60px #f0f;
+    text-align: center;
   }
-  h1 { margin: 0 0 10px 0; text-align: center; font-size: 24px; }
+  .token-image { display: block; width: 118px; height: 118px; margin: 0 auto 12px; }
+  h1 { margin: 0 0 10px; text-align: center; font-size: 24px; }
   .bar { height: 14px; background: #222; border-radius: 10px; overflow: hidden; margin: 12px 0; }
   #fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00); transition: width 0.2s; }
   button { width: 100%; padding: 14px; margin-top: 10px; border: 0; border-radius: 12px; font-weight: 900; font-size: 16px; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
   #btnSi { background: #00ff88; }
   #btnNo { background: #ff0055; color: #fff; }
   #btnExport { background: #fff; }
   .count { display: flex; justify-content: space-between; font-size: 18px; margin: 10px 0; }
+  #status { min-height: 1.2em; margin: 8px 0 0; font-size: 12px; color: #ddd; }
 </style>
 </head>
 <body>
-<canvas id="bg"></canvas>
-<div class="card">
+<canvas id="bg" aria-hidden="true"></canvas>
+<main class="card">
+  <img class="token-image" src="pirata-token.svg" alt="Ilustración de una moneda pirata de Fortnite">
   <h1>¿RICARDO DEJA SACAR EL TOKEN?</h1>
-  <div class="count"><span id="txtSi">SI: 0</span><span id="txtNo">NO: 0</span></div>
-  <div class="bar"><div id="fill"></div></div>
-  <button id="btnSi">VOTAR SI</button>
+  <div class="count"><span id="txtSi">SÍ: 0</span><span id="txtNo">NO: 0</span></div>
+  <div class="bar" role="progressbar" aria-label="Porcentaje de votos Sí"><div id="fill"></div></div>
+  <button id="btnSi">VOTAR SÍ</button>
   <button id="btnNo">VOTAR NO</button>
   <button id="btnExport">EXPORTAR EXCEL</button>
-</div>
+  <p id="status" role="status" aria-live="polite"></p>
+</main>
 
 <script>
 // Fondo RGB
@@ -59,7 +64,6 @@ const c = document.getElementById('bg'), g = c.getContext('2d');
 function rs() { c.width = innerWidth; c.height = innerHeight; }
 rs();
 addEventListener('resize', rs);
-
 let t = 0;
 (function loop() {
   t += 0.02;
@@ -67,48 +71,98 @@ let t = 0;
   g.fillRect(0, 0, c.width, c.height);
   for (let i = 0; i < 60; i++) {
     g.fillStyle = `hsl(${(t * 50 + i * 9) % 360}, 100%, 60%)`;
-    g.fillRect(
-      Math.sin(t + i) * c.width / 2 + c.width / 2,
-      (i / 60 * c.height + t * 120) % c.height,
-      6, 6
-    );
+    g.fillRect(Math.sin(t + i) * c.width / 2 + c.width / 2,
+      (i / 60 * c.height + t * 120) % c.height, 6, 6);
   }
   requestAnimationFrame(loop);
 })();
+</script>
 
-// Votos con guardado local seguro
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getDatabase, ref, onValue, runTransaction } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+
+// Para compartir los resultados entre todos, reemplaza estos valores por la
+// configuración de tu proyecto Firebase (Firebase Console > Configuración web).
+const firebaseConfig = {
+  apiKey: 'REEMPLAZA_CON_TU_API_KEY',
+  authDomain: 'REEMPLAZA_CON_TU_PROYECTO.firebaseapp.com',
+  databaseURL: 'https://REEMPLAZA_CON_TU_PROYECTO-default-rtdb.firebaseio.com',
+  projectId: 'REEMPLAZA_CON_TU_PROYECTO',
+  appId: 'REEMPLAZA_CON_TU_APP_ID'
+};
+
 let data = { si: 0, no: 0 };
-try {
-  const saved = localStorage.getItem('v_token');
-  if (saved) data = JSON.parse(saved);
-} catch (e) {}
-
+const status = document.getElementById('status');
 const txtSi = document.getElementById('txtSi');
 const txtNo = document.getElementById('txtNo');
 const fill = document.getElementById('fill');
+const btnSi = document.getElementById('btnSi');
+const btnNo = document.getElementById('btnNo');
+const btnExport = document.getElementById('btnExport');
+const firebaseConfigured = !Object.values(firebaseConfig).some(value => value.includes('REEMPLAZA_'));
 
 function draw() {
-  txtSi.textContent = `SI: ${data.si}`;
+  data.si = Math.max(0, Number(data.si) || 0);
+  data.no = Math.max(0, Number(data.no) || 0);
+  txtSi.textContent = `SÍ: ${data.si}`;
   txtNo.textContent = `NO: ${data.no}`;
-  const tot = data.si + data.no || 1;
-  fill.style.width = (data.si / tot * 100) + '%';
-  try {
-    localStorage.setItem('v_token', JSON.stringify(data));
-  } catch (e) {}
+  const total = data.si + data.no;
+  const percent = total ? data.si / total * 100 : 0;
+  fill.style.width = `${percent}%`;
+  document.querySelector('.bar').setAttribute('aria-valuenow', percent.toFixed(1));
+  try { localStorage.setItem('v_token', JSON.stringify(data)); } catch (_) {}
 }
-draw();
 
-document.getElementById('btnSi').addEventListener('click', () => { data.si++; draw(); });
-document.getElementById('btnNo').addEventListener('click', () => { data.no++; draw(); });
-document.getElementById('btnExport').addEventListener('click', () => {
+if (firebaseConfigured) {
+  try {
+    const app = initializeApp(firebaseConfig);
+    const votesRef = ref(getDatabase(app), 'votacionToken/votes');
+    onValue(votesRef, snapshot => {
+      data = snapshot.val() || { si: 0, no: 0 };
+      draw();
+      status.textContent = 'Votos compartidos en tiempo real.';
+    }, error => {
+      status.textContent = `Error al cargar los votos compartidos: ${error.message}`;
+    });
+
+    async function vote(option) {
+      btnSi.disabled = btnNo.disabled = true;
+      try {
+        await runTransaction(votesRef, current => {
+          const votes = current || { si: 0, no: 0 };
+          return { si: Number(votes.si) || 0, no: Number(votes.no) || 0,
+            [option]: (Number(votes[option]) || 0) + 1 };
+        });
+      } catch (error) {
+        status.textContent = `No se pudo guardar el voto: ${error.message}`;
+      } finally {
+        btnSi.disabled = btnNo.disabled = false;
+      }
+    }
+    btnSi.addEventListener('click', () => vote('si'));
+    btnNo.addEventListener('click', () => vote('no'));
+  } catch (error) {
+    status.textContent = `No se pudo iniciar Firebase: ${error.message}`;
+  }
+} else {
+  try {
+    const saved = JSON.parse(localStorage.getItem('v_token') || 'null');
+    if (saved && Number.isFinite(Number(saved.si)) && Number.isFinite(Number(saved.no))) {
+      data = { si: Number(saved.si), no: Number(saved.no) };
+    }
+  } catch (_) {}
+  draw();
+  status.textContent = 'Modo local: configura Firebase para compartir los votos entre usuarios.';
+  btnSi.addEventListener('click', () => { data.si++; draw(); });
+  btnNo.addEventListener('click', () => { data.no++; draw(); });
+}
+
+btnExport.addEventListener('click', () => {
   if (typeof XLSX === 'undefined') return alert('No se pudo cargar la librería de Excel.');
-  const row = [{
-    Fecha: new Date().toLocaleString(),
-    SI: data.si,
-    NO: data.no,
-    TOTAL: data.si + data.no,
-    '%SI': ((data.si / (data.si + data.no || 1)) * 100).toFixed(1) + '%'
-  }];
+  const total = data.si + data.no;
+  const row = [{ Fecha: new Date().toLocaleString(), SI: data.si, NO: data.no,
+    TOTAL: total, '%SI': ((data.si / (total || 1)) * 100).toFixed(1) + '%' }];
   const ws = XLSX.utils.json_to_sheet(row);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Votacion');
