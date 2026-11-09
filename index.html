@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOTACIÓN TOKEN - Permiso Ricardo</title>
+<link rel="icon" href="token.png">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@800&display=swap');
+  body{margin:0;font-family:'JetBrains Mono',monospace;background:#000;color:#fff;overflow:hidden}
+  #canvas{position:fixed;inset:0;z-index:-1}
+  .wrap{height:100vh;display:grid;place-items:center}
+  .card{width:min(480px,90vw);background:rgba(0,0,0,.7);backdrop-filter:blur(12px);border:2px solid #fff;border-radius:24px;padding:28px;box-shadow:0 0 40px #0ff, inset 0 0 20px #f0f}
+  h1{font-size:28px;margin:0;text-align:center;animation:hue 2s linear infinite}
+  @keyframes hue{to{filter:hue-rotate(360deg)}}
+  .votes{display:flex;justify-content:space-between;margin:20px 0;font-size:18px}
+  button{width:100%;padding:14px;border:none;border-radius:12px;font-weight:800;font-size:16px;cursor:pointer;margin-top:10px;transition:.1s}
+  #yes{background:#00ff88;color:#000} #no{background:#ff0055;color:#fff}
+  #export{background:#fff;color:#000;margin-top:18px}
+  button:active{transform:scale(.96)}
+  .bar{height:12px;background:#222;border-radius:10px;overflow:hidden;margin-top:10px}
+  .fill{height:100%;width:0%;background:linear-gradient(90deg,#0ff,#f0f,#ff0);transition:.4s}
+  small{display:block;text-align:center;margin-top:12px;opacity:.7}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div class="wrap">
+  <div class="card">
+    <h1>¿RICARDO NOS DEJA SACAR EL TOKEN?</h1>
+    <img src="token.png" style="width:80px;display:block;margin:12px auto;filter:drop-shadow(0 0 12px gold)">
+    <div class="votes"><span id="cYes">SI: 0</span><span id="cNo">NO: 0</span></div>
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <button id="yes">VOTAR SI - SAQUEN EL TOKEN</button>
+    <button id="no">VOTAR NO - A DORMIR</button>
+    <button id="export">Exportar Excel para Ricardo 📊</button>
+    <small>Live 144 FPS • RGB • Guardado local</small>
+  </div>
+</div>
+<script>
+// 144 FPS RGB background
+const c=document.getElementById('canvas'), x=c.getContext('2d');
+function resize(){c.width=innerWidth;c.height=innerHeight} resize(); onresize=resize;
+let t=0;
+function loop(){t+=0.02; x.fillStyle=`hsl(${t*20%360},100%,5%)`; x.fillRect(0,0,c.width,c.height);
+  for(let i=0;i<50;i++){x.fillStyle=`hsl(${(t*40+i*7)%360},100%,50%)`; x.fillRect(Math.sin(t+i)*c.width/2+c.width/2, (i/50*c.height+t*100)%c.height, 4,4)}
+  requestAnimationFrame(loop)} loop();
+
+// votos
+let data=JSON.parse(localStorage.getItem('votos_token')||'{"si":0,"no":0}');
+function render(){document.getElementById('cYes').textContent=`SI: ${data.si}`; document.getElementById('cNo').textContent=`NO: ${data.no}`;
+  let total=data.si+data.no||1; document.getElementById('fill').style.width=(data.si/total*100)+'%';
+  localStorage.setItem('votos_token',JSON.stringify(data))}
+render();
+yes.onclick=()=>{data.si++;render()}; no.onclick=()=>{data.no++;render()};
+
+export.onclick=()=>{
+  const ws=XLSX.utils.json_to_sheet([{Fecha:new Date().toLocaleString(), SI:data.si, NO:data.no, Total:data.si+data.no, Porcentaje_SI:((data.si/(data.si+data.no||1))*100).toFixed(1)+'%'}]);
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Votacion");
+  XLSX.writeFile(wb,"votacion_token_ricardo.xlsx");
+}
+</script>
+</body>
+</html>
+		
